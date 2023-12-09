@@ -1,0 +1,6 @@
+datacenter:zirsakht
+4.2.2.4:IGW_status
+1.1.1.1:IGW_Peer_status
+95.38.58.3:IXP_status
+1.0.0.1:IXP_status
+5.5.5.5:IGW_status
