@@ -1,5 +1,7 @@
 github.com/google/uuid v1.3.0 h1:t6JiXgmwXMjEs8VusXIJk2BXHsn+wx8BZdTaoZ5fu7I=
 github.com/google/uuid v1.3.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/gorilla/websocket v1.5.1 h1:gmztn0JnHVt9JZquRuzLw3g4wouNVzKL15iLr/zn/QY=
+github.com/gorilla/websocket v1.5.1/go.mod h1:x3kM2JMyaluk02fnUJpQuwD2dCS5NDG2ZHL0uE0tcaY=
 github.com/prometheus-community/pro-bing v0.3.0 h1:SFT6gHqXwbItEDJhTkzPWVqU6CLEtqEfNAPp47RUON4=
 github.com/prometheus-community/pro-bing v0.3.0/go.mod h1:p9dLb9zdmv+eLxWfCT6jESWuDrS+YzpPkQBgysQF8a0=
 golang.org/x/net v0.19.0 h1:zTwKpTd2XuCqf8huc7Fo2iSy+4RHPd10s4KzeTnVr1c=

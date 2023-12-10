@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"log"
 	"fmt"
 	"html/template"
 	"io"
@@ -11,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
+	"github.com/gorilla/websocket"
 	probing "github.com/prometheus-community/pro-bing"
 )
 
@@ -64,9 +65,13 @@ type PingResult struct {
 }
 
 type DataCenterResult struct {
-	Data       PingResult `json:"data"`
+	// Data       PingResult `json:"data"`
 	DataCenter string     `json:"data_center"`
 	Type       string     `json:"type"`
+	Duty       string     `json:"duty"`
+	RTTAvg          float64 `json:"rtt_avg"`
+	Destination     string  `json:"destination"`
+	PacketLossCount float64 `json:"packet_loss_count"`
 }
 
 func main() {
@@ -75,45 +80,62 @@ func main() {
 	http.HandleFunc("/upload", uploadHandler)
 
 	// ch := make(chan string)
-	ip1 := PingResult{
-		Destination: "8.8.8.8",
-	}
-	ip2 := PingResult{
-		Destination: "1.1.1.1",
-	}
-	ips1 := DataCenterResult{
-		DataCenter: "dffgd",
-		Type:       "dfdfg",
-		Data:       ip1,
-	}
-	ips2 := DataCenterResult{
-		DataCenter: "zzzzz",
-		Type:       "zzzzzz",
-		Data:       ip2,
-	}
-	ips := []DataCenterResult{ips1, ips2}
+	// ip1 := PingResult{
+	// 	Destination: "8.8.8.8",
+	// }
+	// ip2 := PingResult{
+	// 	Destination: "1.1.1.1",
+	// }
+	// ips1 := DataCenterResult{
+	// 	DataCenter: "dffgd",
+	// 	Type:       "dfdfg",
+	// 	Data:       ip1,
+	// }
+	// ips2 := DataCenterResult{
+	// 	DataCenter: "zzzzz",
+	// 	Type:       "zzzzzz",
+	// 	Data:       ip2,
+	// }
+	// ips := []DataCenterResult{ips1, ips2}
 
-	for _, ip := range ips {
-		go func(ip string) {
-			// for true {
-			pingResult := <-getPing(ip)
-			result := DataCenterResult{
-				Data:       pingResult,
-				DataCenter: "your_data_center", // Replace with your actual data center
-				Type:       "your_type",        // Replace with your actual type
-			}
-			jsonStr, err := json.Marshal(result)
-			if err != nil {
-				panic(err)
-			}
-			fmt.Println(string(jsonStr), result)
-			time.Sleep(1 * time.Second)
+	// for _, ip := range ips {
+	// 	go func(ip string) {
+	// 		// for true {
+	// 		pingResult := <-getPing(ip)
+	// 		result := DataCenterResult{
+	// 			Data:       pingResult,
+	// 			DataCenter: "your_data_center", // Replace with your actual data center
+	// 			Type:       "your_type",        // Replace with your actual type
+	// 		}
+	// 		jsonStr, err := json.Marshal(result)
+	// 		if err != nil {
+	// 			panic(err)
+	// 		}
+	// 		fmt.Println(string(jsonStr), result)
+	// 		time.Sleep(1 * time.Second)
 
-			// }
-		}(ip)
-	}
+	// 		// }
+	// 	}(ip)
+	// }
 	// fmt.Println(<-ch)
-	port := 8001
+	
+	// go func() {
+	// 	for true {
+	// 		for _, ip := range ips {
+	// 			fmt.Println("Hello !!", ip)
+	// 			time.Sleep(1 * time.Second)
+	// 		}
+	// 	}
+	// }()
+
+	// ticker := time.NewTicker(1 * time.Second)
+	// go func() {
+	// 	for range ticker.C {
+	// 		fmt.Println("Hello !!")
+	// 	}
+	// }()
+
+	port := 8002
 	serverAddr := fmt.Sprintf(":%d", port)
 	fmt.Printf("Server listening on http://localhost%s\n", serverAddr)
 	err := http.ListenAndServe(serverAddr, nil)
@@ -126,34 +148,35 @@ func main() {
 
 func getPing(dataCenter DataCenterResult) chan DataCenterResult {
 	ch := make(chan DataCenterResult)
-	ipData := dataCenter.Data
-	ip := ipData.Destination
-	for true {
-		go func() {
-
-			pinger, err := probing.NewPinger(ip)
-			if err != nil {
-				panic(err)
-			}
-			pinger.Count = 1
-			err = pinger.Run() // Blocks until finished.
-			if err != nil {
-				panic(err)
-			}
-			stats := pinger.Statistics()
-			// s := fmt.Sprintf("packet lost: %v , packet receive: %v , total packet: %v , ttlavg: %v", stats.PacketLoss, stats.PacketsRecv, stats.PacketsSent, stats.AvgRtt)
-			ipData.PacketLossCount = stats.PacketLoss
-			ipData.RTTAvg = stats.AvgRtt.Seconds()
+	// ipData := dataCenter.Data
+	ip := dataCenter.Destination
+	// go func() {
+		// for range ticker.C {
+	pinger, err := probing.NewPinger(ip)
+	if err != nil {
+		panic(err)
+	}
+	pinger.Count = 1
+	err = pinger.Run() // Blocks until finished.
+	if err != nil {
+		panic(err)
+	}
+	stats := pinger.Statistics()
+	// s := fmt.Sprintf("packet lost: %v , packet receive: %v , total packet: %v , ttlavg: %v", stats.PacketLoss, stats.PacketsRecv, stats.PacketsSent, stats.AvgRtt)
+	dataCenter.PacketLossCount = stats.PacketLoss
+	dataCenter.RTTAvg = stats.AvgRtt.Seconds()
 			// result := PingResult{
 			// 	RTTAvg:          stats.AvgRtt.Seconds(),
 			// 	Destination:     ip,
 			// 	PacketLossCount: stats.PacketLoss,
 			// }
-			result := dataCenter
-			ch <- result
+	result := dataCenter
+	fmt.Println(result)
+	ch <- result
+	time.Sleep(1 * time.Second)
 
-		}()
-	}
+	// 	}
+	// }()
 	return ch
 }
 
@@ -243,10 +266,10 @@ func readFile(filePath string) {
 		fmt.Println(line)
 	}
 	dataCenter := DataCenterResult{}
-
+	dataCenterList := []DataCenterResult{}
 	for index, line := range lines {
 		parts := strings.Split(line, ":")
-		ping := PingResult{}
+		// ping := PingResult{}
 		// Check if there are at least two parts
 		if index == 0 {
 			if len(parts) >= 2 {
@@ -259,19 +282,84 @@ func readFile(filePath string) {
 		}
 		if index > 0 {
 			if len(parts) >= 2 {
-				ping.Destination = parts[0]
+				dataCenter.Duty = "ping"
+				dataCenter.Destination = parts[0]
 				dataCenter.Type = parts[1]
-				dataCenter.Data = ping
+				// dataCenter.Data = ping
+				dataCenterList = append(dataCenterList, dataCenter)
 			}
 		} else {
 			fmt.Println("Invalid line:", line)
 		}
 
-		fmt.Println(dataCenter, ping)
+		fmt.Println(dataCenter)
 
 	}
-
+	ticker := time.NewTicker(1 * time.Second)
+	// for _, datacenter := range dataCenterList {
+		
+	runPingTasks(dataCenterList, ticker)
+	
 	if err := scanner.Err(); err != nil {
 		fmt.Println("Error reading file:", err)
+	}
+}
+
+
+func runPingTasks(datacenters []DataCenterResult, ticker *time.Ticker) {
+	fmt.Println(datacenters)
+	for _, datacenter := range datacenters {
+		go func(dc DataCenterResult) {
+			for range ticker.C {
+				// ipData := dc.Data
+				ip := dc.Destination
+
+				pinger, err := probing.NewPinger(ip)
+				if err != nil {
+					panic(err)
+				}
+
+				pinger.Count = 1
+				err = pinger.Run()
+				if err != nil {
+					panic(err)
+				}
+
+				stats := pinger.Statistics()
+				dc.PacketLossCount = stats.PacketLoss
+				dc.RTTAvg = stats.AvgRtt.Seconds()
+
+				// result := DataCenterResult{
+				// 	Data:       ipData,
+				// 	DataCenter: dc.DataCenter,
+				// 	Type:       dc.Type,
+				// }
+				// datacenter.Data = ipData
+				// datacenter.DataCenter = dc.DataCenter
+				// datacenter.Type = dc.Type
+				fmt.Println(dc)
+				jsonStr, err := json.Marshal(dc)
+				if err != nil {
+					panic(err)
+				}
+				serverURL := "ws://localhost:9001/ws/ping/"
+				conn, _, err := websocket.DefaultDialer.Dial(serverURL, nil)
+				if err != nil {
+					log.Fatal(err)
+				}
+				defer conn.Close()
+
+				// Example: Send a message to the WebSocket server every second
+				for {
+					message := jsonStr
+					err := conn.WriteMessage(websocket.TextMessage, message)
+					if err != nil {
+						log.Println("Error sending message:", err)
+						break
+					}
+					time.Sleep(1 * time.Second)
+				}
+			}
+		}(datacenter)
 	}
 }
