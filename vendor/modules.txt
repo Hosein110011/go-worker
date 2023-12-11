@@ -1,12 +1,13 @@
-# github.com/google/uuid v1.3.0
+# github.com/google/uuid v1.4.0
 ## explicit
-github.com/google/uuid
 # github.com/gorilla/websocket v1.5.1
 ## explicit; go 1.20
 github.com/gorilla/websocket
 # github.com/prometheus-community/pro-bing v0.3.0
 ## explicit; go 1.19
-github.com/prometheus-community/pro-bing
+# github.com/tatsushid/go-fastping v0.0.0-20160109021039-d7bb493dee3e
+## explicit
+github.com/tatsushid/go-fastping
 # golang.org/x/net v0.19.0
 ## explicit; go 1.18
 golang.org/x/net/bpf
@@ -17,9 +18,8 @@ golang.org/x/net/internal/socks
 golang.org/x/net/ipv4
 golang.org/x/net/ipv6
 golang.org/x/net/proxy
-# golang.org/x/sync v0.3.0
-## explicit; go 1.17
-golang.org/x/sync/errgroup
+# golang.org/x/sync v0.5.0
+## explicit; go 1.18
 # golang.org/x/sys v0.15.0
 ## explicit; go 1.18
 golang.org/x/sys/unix

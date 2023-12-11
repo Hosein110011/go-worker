@@ -9,12 +9,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"net"
 	"path/filepath"
 	"strings"
 	"time"
-
+	"github.com/tatsushid/go-fastping"
 	"github.com/gorilla/websocket"
-	probing "github.com/prometheus-community/pro-bing"
+	// probing "github.com/prometheus-community/pro-bing"
 )
 
 // type Server struct {
@@ -150,7 +151,7 @@ func main() {
 	// 	}
 	// }()
 
-	port := 8003
+	port := 8004
 	serverAddr := fmt.Sprintf(":%d", port)
 	fmt.Printf("Server listening on http://localhost%s\n", serverAddr)
 	err := http.ListenAndServe(serverAddr, nil)
@@ -161,39 +162,39 @@ func main() {
 
 }
 
-func getPing(dataCenter DataCenterResult) chan DataCenterResult {
-	ch := make(chan DataCenterResult)
-	// ipData := dataCenter.Data
-	ip := dataCenter.Destination
-	// go func() {
-	// for range ticker.C {
-	pinger, err := probing.NewPinger(ip)
-	if err != nil {
-		panic(err)
-	}
-	pinger.Count = 1
-	err = pinger.Run() // Blocks until finished.
-	if err != nil {
-		panic(err)
-	}
-	stats := pinger.Statistics()
-	// s := fmt.Sprintf("packet lost: %v , packet receive: %v , total packet: %v , ttlavg: %v", stats.PacketLoss, stats.PacketsRecv, stats.PacketsSent, stats.AvgRtt)
-	dataCenter.PacketLossCount = stats.PacketLoss
-	dataCenter.RTTAvg = stats.AvgRtt.Seconds()
-	// result := PingResult{
-	// 	RTTAvg:          stats.AvgRtt.Seconds(),
-	// 	Destination:     ip,
-	// 	PacketLossCount: stats.PacketLoss,
-	// }
-	result := dataCenter
-	fmt.Println(result)
-	ch <- result
-	time.Sleep(1 * time.Second)
+// func getPing(dataCenter DataCenterResult) chan DataCenterResult {
+// 	ch := make(chan DataCenterResult)
+// 	// ipData := dataCenter.Data
+// 	ip := dataCenter.Destination
+// 	// go func() {
+// 	// for range ticker.C {
+// 	pinger, err := probing.NewPinger(ip)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	pinger.Count = 1
+// 	err = pinger.Run() // Blocks until finished.
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	stats := pinger.Statistics()
+// 	// s := fmt.Sprintf("packet lost: %v , packet receive: %v , total packet: %v , ttlavg: %v", stats.PacketLoss, stats.PacketsRecv, stats.PacketsSent, stats.AvgRtt)
+// 	dataCenter.PacketLossCount = stats.PacketLoss
+// 	dataCenter.RTTAvg = stats.AvgRtt.Seconds()
+// 	// result := PingResult{
+// 	// 	RTTAvg:          stats.AvgRtt.Seconds(),
+// 	// 	Destination:     ip,
+// 	// 	PacketLossCount: stats.PacketLoss,
+// 	// }
+// 	result := dataCenter
+// 	fmt.Println(result)
+// 	ch <- result
+// 	time.Sleep(1 * time.Second)
 
-	// 	}
-	// }()
-	return ch
-}
+// 	// 	}
+// 	// }()
+// 	return ch
+// }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	// Render the HTML form
@@ -333,21 +334,42 @@ func runPingTasks(datacenters []DataCenterResult, ticker *time.Ticker) {
 				// ipData := dc.Data
 				ip := dc.Destination
 
-				pinger, err := probing.NewPinger(ip)
+				pinger := fastping.NewPinger()
+
+				ra, err := net.ResolveIPAddr("ip4:icmp", ip) // Example IP
 				if err != nil {
-					panic(err)
+                    fmt.Println(err)
+                    continue 
+				}
+				pinger.AddIPAddr(ra)
+
+				var sentPings int
+                var receivedPings int
+                var totalRtt time.Duration
+
+				pinger.OnRecv = func(addr *net.IPAddr, rtt time.Duration) {
+					receivedPings++
+                    totalRtt += rtt
+				}
+				pinger.OnIdle = func() {
+					if sentPings > 0 {
+                        dc.PacketLossCount = float64(sentPings-receivedPings)
+                        if receivedPings > 0 {
+                            dc.RTTAvg = totalRtt.Seconds() / float64(receivedPings)
+                        }
+                    }
 				}
 
-				pinger.Count = 1
-				err = pinger.Run()
-				if err != nil {
-					panic(err)
+				// Number of pings to send
+				count := 1
+				for i := 0; i < count; i++ {
+					sentPings++
+					err = pinger.Run()
+					if err != nil {
+						fmt.Println(err)
+						os.Exit(1)
+					}
 				}
-
-				stats := pinger.Statistics()
-				dc.PacketLossCount = stats.PacketLoss
-				dc.RTTAvg = stats.AvgRtt.Seconds()
-
 				// result := DataCenterResult{
 				// 	Data:       ipData,
 				// 	DataCenter: dc.DataCenter,
