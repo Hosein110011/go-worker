@@ -3,15 +3,16 @@ package main
 import (
 	"bufio"
 	"encoding/json"
-	"log"
 	"fmt"
 	"html/template"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
 	"github.com/gorilla/websocket"
 	probing "github.com/prometheus-community/pro-bing"
 )
@@ -66,18 +67,32 @@ type PingResult struct {
 
 type DataCenterResult struct {
 	// Data       PingResult `json:"data"`
-	DataCenter string     `json:"data_center"`
-	Type       string     `json:"type"`
-	Duty       string     `json:"duty"`
+	DataCenter      string  `json:"data_center"`
+	Type            string  `json:"type"`
+	Duty            string  `json:"duty"`
 	RTTAvg          float64 `json:"rtt_avg"`
 	Destination     string  `json:"destination"`
 	PacketLossCount float64 `json:"packet_loss_count"`
+}
+
+type CurlResult struct {
+	Url        string `json:"url"`
+	StatusCode int    `json:"status_code"`
+	Duty       string `json:"duty"`
 }
 
 func main() {
 
 	http.HandleFunc("/", indexHandler)
 	http.HandleFunc("/upload", uploadHandler)
+
+	// hosts := []string{
+	// 	"https://www.google.com",
+	// 	"https://www.digikala.com",
+	// }
+	// ticker := time.NewTicker(1 * time.Second)
+
+	// runCurlTask(hosts, ticker)
 
 	// ch := make(chan string)
 	// ip1 := PingResult{
@@ -118,7 +133,7 @@ func main() {
 	// 	}(ip)
 	// }
 	// fmt.Println(<-ch)
-	
+
 	// go func() {
 	// 	for true {
 	// 		for _, ip := range ips {
@@ -135,7 +150,7 @@ func main() {
 	// 	}
 	// }()
 
-	port := 8002
+	port := 8003
 	serverAddr := fmt.Sprintf(":%d", port)
 	fmt.Printf("Server listening on http://localhost%s\n", serverAddr)
 	err := http.ListenAndServe(serverAddr, nil)
@@ -151,7 +166,7 @@ func getPing(dataCenter DataCenterResult) chan DataCenterResult {
 	// ipData := dataCenter.Data
 	ip := dataCenter.Destination
 	// go func() {
-		// for range ticker.C {
+	// for range ticker.C {
 	pinger, err := probing.NewPinger(ip)
 	if err != nil {
 		panic(err)
@@ -165,11 +180,11 @@ func getPing(dataCenter DataCenterResult) chan DataCenterResult {
 	// s := fmt.Sprintf("packet lost: %v , packet receive: %v , total packet: %v , ttlavg: %v", stats.PacketLoss, stats.PacketsRecv, stats.PacketsSent, stats.AvgRtt)
 	dataCenter.PacketLossCount = stats.PacketLoss
 	dataCenter.RTTAvg = stats.AvgRtt.Seconds()
-			// result := PingResult{
-			// 	RTTAvg:          stats.AvgRtt.Seconds(),
-			// 	Destination:     ip,
-			// 	PacketLossCount: stats.PacketLoss,
-			// }
+	// result := PingResult{
+	// 	RTTAvg:          stats.AvgRtt.Seconds(),
+	// 	Destination:     ip,
+	// 	PacketLossCount: stats.PacketLoss,
+	// }
 	result := dataCenter
 	fmt.Println(result)
 	ch <- result
@@ -268,43 +283,47 @@ func readFile(filePath string) {
 	dataCenter := DataCenterResult{}
 	dataCenterList := []DataCenterResult{}
 	for index, line := range lines {
-		parts := strings.Split(line, ":")
-		// ping := PingResult{}
-		// Check if there are at least two parts
-		if index == 0 {
-			if len(parts) >= 2 {
-				dataCenter.DataCenter = parts[1]
-			} else {
-				fmt.Println("Invalid data")
-			}
-			// Process the data (you can customize this part based on your needs)
-			// fmt.Printf("Datacenter: %s, Status: %s\n", datacenter, status)
-		}
-		if index > 0 {
-			if len(parts) >= 2 {
-				dataCenter.Duty = "ping"
-				dataCenter.Destination = parts[0]
-				dataCenter.Type = parts[1]
-				// dataCenter.Data = ping
-				dataCenterList = append(dataCenterList, dataCenter)
-			}
+		if strings.HasPrefix(line, "https://") {
+			ticker := time.NewTicker(1 * time.Minute)
+			runCurlTask(line, ticker)
 		} else {
-			fmt.Println("Invalid line:", line)
+			parts := strings.Split(line, ":")
+			// ping := PingResult{}
+			// Check if there are at least two parts
+			if index == 0 {
+				if len(parts) >= 2 {
+					dataCenter.DataCenter = parts[1]
+				} else {
+					fmt.Println("Invalid data")
+				}
+				// Process the data (you can customize this part based on your needs)
+				// fmt.Printf("Datacenter: %s, Status: %s\n", datacenter, status)
+			}
+			if index > 0 {
+				if len(parts) >= 2 {
+					dataCenter.Duty = "ping"
+					dataCenter.Destination = parts[0]
+					dataCenter.Type = parts[1]
+					// dataCenter.Data = ping
+					dataCenterList = append(dataCenterList, dataCenter)
+				}
+			} else {
+				fmt.Println("Invalid line:", line)
+			}
+
+			fmt.Println(dataCenter)
 		}
-
-		fmt.Println(dataCenter)
-
 	}
-	ticker := time.NewTicker(1 * time.Second)
-	// for _, datacenter := range dataCenterList {
-		
-	runPingTasks(dataCenterList, ticker)
-	
+	if len(dataCenterList) == len(lines)-1 {
+		ticker := time.NewTicker(1 * time.Second)
+		fmt.Println("ip")
+		// for _, datacenter := range dataCenterList {
+		runPingTasks(dataCenterList, ticker)
+	}
 	if err := scanner.Err(); err != nil {
 		fmt.Println("Error reading file:", err)
 	}
 }
-
 
 func runPingTasks(datacenters []DataCenterResult, ticker *time.Ticker) {
 	fmt.Println(datacenters)
@@ -362,4 +381,51 @@ func runPingTasks(datacenters []DataCenterResult, ticker *time.Ticker) {
 			}
 		}(datacenter)
 	}
+}
+
+func runCurlTask(url string, ticker *time.Ticker) {
+	// for _, url := range urls {
+	go func(url string) {
+		for range ticker.C {
+			response, err := http.Get(url)
+			if err != nil {
+				fmt.Println("Error:", err)
+				return
+			}
+			// time.Sleep(1 * time.Minute)
+			defer response.Body.Close()
+
+			statusCode := response.StatusCode
+			if err != nil {
+				fmt.Println("Error:", err)
+				return
+			}
+			result := CurlResult{}
+			result.Url = url
+			result.StatusCode = statusCode
+			result.Duty = "curl"
+			jsonStr, err := json.Marshal(result)
+			if err != nil {
+				panic(err)
+			}
+			serverURL := "ws://localhost:9001/ws/ping/"
+			conn, _, err := websocket.DefaultDialer.Dial(serverURL, nil)
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer conn.Close()
+
+			// Example: Send a message to the WebSocket server every second
+
+			message := jsonStr
+			errr := conn.WriteMessage(websocket.TextMessage, message)
+			if errr != nil {
+				log.Println("Error sending message:", err)
+				continue
+			}
+			fmt.Println("Response Body:", result)
+		}
+
+	}(url)
+	// }
 }
