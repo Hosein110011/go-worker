@@ -151,7 +151,7 @@ func main() {
 	// 	}
 	// }()
 
-	port := 8004
+	port := 8001
 	serverAddr := fmt.Sprintf(":%d", port)
 	fmt.Printf("Server listening on http://localhost%s\n", serverAddr)
 	err := http.ListenAndServe(serverAddr, nil)
@@ -285,7 +285,7 @@ func readFile(filePath string) {
 	dataCenterList := []DataCenterResult{}
 	for index, line := range lines {
 		if strings.HasPrefix(line, "https://") {
-			ticker := time.NewTicker(1 * time.Minute)
+			ticker := time.NewTicker(5 * time.Minute)
 			runCurlTask(line, ticker)
 		} else {
 			parts := strings.Split(line, ":")
@@ -383,7 +383,7 @@ func runPingTasks(datacenters []DataCenterResult, ticker *time.Ticker) {
 				if err != nil {
 					panic(err)
 				}
-				serverURL := "ws://localhost:9001/ws/ping/"
+				serverURL := "ws://go-master:9001/ws/ping/"
 				conn, _, err := websocket.DefaultDialer.Dial(serverURL, nil)
 				if err != nil {
 					log.Fatal(err)
@@ -430,7 +430,7 @@ func runCurlTask(url string, ticker *time.Ticker) {
 			if err != nil {
 				panic(err)
 			}
-			serverURL := "ws://localhost:9001/ws/ping/"
+			serverURL := "ws://go-master:9001/ws/ping/"
 			conn, _, err := websocket.DefaultDialer.Dial(serverURL, nil)
 			if err != nil {
 				log.Fatal(err)
